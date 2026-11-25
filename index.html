@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -6,6 +7,8 @@
     <title>Spotify Top Tracks Canvas Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 一括生成ZIPダウンロード用 JSZip -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
         body {
@@ -71,6 +74,7 @@
                             <input type="text" id="currentRedirectUri" readonly class="w-full bg-black/50 border border-gray-800 rounded px-2 py-1 text-gray-300 text-xs font-mono select-all focus:outline-none">
                         </div>
                     </div>
+
                     <div class="flex gap-2">
                         <button id="loginBtn" onclick="handleSpotifyLogin()" 
                             class="flex-1 bg-spotify-green text-black font-bold text-sm py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 shadow-lg shadow-green-900/20 transition">
@@ -88,12 +92,18 @@
                     <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">2. ランキング表示設定</label>
                     
                     <div>
-                        <label class="block text-sm text-gray-300 mb-1">表示件数</label>
-                        <div class="grid grid-cols-2 gap-2">
-                            <button id="limit10Btn" onclick="setLimit(10)" class="py-2 rounded-lg text-sm font-semibold bg-green-500/20 text-green-400 border border-green-500/50">
+                        <label class="block text-sm text-gray-300 mb-1.5">表示件数（TOP 5 / 10 / 15 / 50）</label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button id="limit5Btn" onclick="setLimit(5)" class="py-2 rounded-lg text-xs sm:text-sm font-semibold bg-gray-800 text-gray-400 border border-transparent hover:border-gray-700 transition">
+                                TOP 5
+                            </button>
+                            <button id="limit10Btn" onclick="setLimit(10)" class="py-2 rounded-lg text-xs sm:text-sm font-semibold bg-green-500/20 text-green-400 border border-green-500/50 transition">
                                 TOP 10
                             </button>
-                            <button id="limit50Btn" onclick="setLimit(50)" class="py-2 rounded-lg text-sm font-semibold bg-gray-800 text-gray-400 border border-transparent hover:border-gray-700">
+                            <button id="limit15Btn" onclick="setLimit(15)" class="py-2 rounded-lg text-xs sm:text-sm font-semibold bg-gray-800 text-gray-400 border border-transparent hover:border-gray-700 transition">
+                                TOP 15
+                            </button>
+                            <button id="limit50Btn" onclick="setLimit(50)" class="py-2 rounded-lg text-xs sm:text-sm font-semibold bg-gray-800 text-gray-400 border border-transparent hover:border-gray-700 transition">
                                 TOP 50
                             </button>
                         </div>
@@ -109,26 +119,43 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm text-gray-300 mb-1">テーマカラー</label>
-                        <div class="flex gap-3">
-                            <button onclick="setTheme('dark')" class="w-8 h-8 rounded-full bg-zinc-900 border-2 border-green-500 focus:outline-none"></button>
-                            <button onclick="setTheme('purple')" class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-900 to-indigo-900 border-2 border-transparent focus:outline-none"></button>
-                            <button onclick="setTheme('emerald')" class="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-900 to-teal-900 border-2 border-transparent focus:outline-none"></button>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm text-gray-300">背景テーマ（16色＋金＋銀）</label>
+                            <span id="currentThemeLabel" class="text-xs font-semibold text-green-400">ダーク (Dark)</span>
+                        </div>
+                        <!-- 18色パレットコンテナ -->
+                        <div id="themePalette" class="grid grid-cols-6 gap-2.5 bg-gray-900/60 p-3 rounded-xl border border-gray-800">
+                            <!-- JSで18個のボタンを生成 -->
                         </div>
                     </div>
                 </div>
 
                 <!-- 3. アクション -->
-                <div class="pt-4 border-t border-gray-800">
+                <div class="pt-4 border-t border-gray-800 space-y-3">
                     <button onclick="downloadCanvas()" class="w-full bg-white hover:bg-gray-100 text-black font-extrabold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-xl transition">
-                        <i class="fa-solid fa-download"></i> 高画質画像をダウンロード (PNG)
+                        <i class="fa-solid fa-download"></i> 選択中の1枚をダウンロード (PNG)
                     </button>
+
+                    <button id="batchGenerateBtn" onclick="generateAll18Themes()" class="w-full bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 hover:from-amber-300 hover:to-yellow-500 text-black font-extrabold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30 transition">
+                        <i class="fa-solid fa-layer-group"></i> 全18色（16色＋金＋銀）を一括生成
+                    </button>
+
+                    <!-- 一括生成プログレス表示 -->
+                    <div id="batchProgressContainer" class="hidden bg-gray-900/90 border border-gray-700 rounded-xl p-3 space-y-2">
+                        <div class="flex justify-between text-xs font-semibold">
+                            <span id="batchProgressText" class="text-amber-400">生成中... (0 / 18)</span>
+                            <span id="batchProgressPercent" class="text-gray-300">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                            <div id="batchProgressBar" class="bg-gradient-to-r from-green-400 to-amber-400 h-2 rounded-full transition-all duration-150" style="width: 0%"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- 右側：Canvas プレビュー -->
-        <div class="lg:col-span-7 flex flex-col items-center justify-center">
+        <div class="lg:col-span-7 flex flex-col items-center justify-start">
             <div class="glass-card p-4 rounded-2xl w-full flex flex-col items-center justify-center overflow-hidden">
                 <div class="mb-3 flex items-center justify-between w-full px-2">
                     <span class="text-xs font-semibold text-gray-400">リアルタイム Canvas プレビュー</span>
@@ -141,6 +168,37 @@
             </div>
         </div>
     </main>
+
+    <!-- 一括生成結果モーダル -->
+    <div id="batchModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+            <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3 bg-gray-950">
+                <div>
+                    <h3 class="text-lg font-extrabold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-images text-amber-400"></i> 全18色 一括生成完了！
+                    </h3>
+                    <p class="text-xs text-gray-400 mt-0.5">ZIPでまとめて保存するか、スマホの場合は各画像を長押し/個別タップで保存できます</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="downloadZipBtn" onclick="downloadAllAsZip()" class="bg-spotify-green hover:bg-green-400 text-black font-bold text-xs sm:text-sm py-2 px-4 rounded-lg flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-file-zipper"></i> ZIPで一括ダウンロード
+                    </button>
+                    <button onclick="closeBatchModal()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded-lg transition">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="batchGrid" class="p-6 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+                <!-- 生成された18枚のサムネイルと個別保存ボタン -->
+            </div>
+        </div>
+    </div>
+
+    <!-- カスタム通知トースト -->
+    <div id="toastMessage" class="fixed bottom-5 right-5 z-50 hidden bg-gray-900 border border-green-500/50 text-white px-4 py-3 rounded-xl shadow-2xl text-sm font-semibold flex items-center gap-2">
+        <i class="fa-solid fa-circle-info text-green-400"></i>
+        <span id="toastText"></span>
+    </div>
 
     <footer class="border-t border-gray-800 py-4 text-center text-xs text-gray-500">
         <p>Spotify API & HTML5 Canvas Ranking Generator</p>
@@ -156,6 +214,30 @@
             { name: "Heat Waves", artist: "Glass Animals", albumArt: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&auto=format&fit=crop" }
         ];
 
+        // 16色 ＋ 金色 ＋ 銀色（計18テーマ）定義
+        const THEMES = [
+            // 16色
+            { id: 'dark',     name: 'ダーク',       swatch: '#121212', stops: ['#161616', '#050505', '#0a1f12'], accent: '#1DB954', lightText: false },
+            { id: 'slate',    name: 'スレート',     swatch: '#334155', stops: ['#1e293b', '#0f172a', '#020617'], accent: '#38bdf8', lightText: false },
+            { id: 'midnight', name: 'ミッドナイト', swatch: '#1e1b4b', stops: ['#1e1b4b', '#0f172a', '#090d16'], accent: '#818cf8', lightText: false },
+            { id: 'purple',   name: 'パープル',     swatch: '#581c87', stops: ['#2e1065', '#170736', '#090014'], accent: '#c084fc', lightText: false },
+            { id: 'indigo',   name: 'インディゴ',   swatch: '#3730a3', stops: ['#312e81', '#1e1b4b', '#0c0a24'], accent: '#a5b4fc', lightText: false },
+            { id: 'blue',     name: 'ブルー',       swatch: '#1d4ed8', stops: ['#1e3a8a', '#0f2557', '#06112b'], accent: '#60a5fa', lightText: false },
+            { id: 'cyan',     name: 'シアン',       swatch: '#0e7490', stops: ['#164e63', '#083344', '#031922'], accent: '#22d3ee', lightText: false },
+            { id: 'teal',     name: 'ティール',     swatch: '#0f766e', stops: ['#134e4a', '#042f2e', '#021717'], accent: '#2dd4bf', lightText: false },
+            { id: 'emerald',  name: 'エメラルド',   swatch: '#047857', stops: ['#064e3b', '#022c22', '#011812'], accent: '#34d399', lightText: false },
+            { id: 'lime',     name: 'ライム',       swatch: '#4d7c0f', stops: ['#365314', '#1a2e05', '#0d1703'], accent: '#a3e635', lightText: false },
+            { id: 'amber',    name: 'アンバー',     swatch: '#b45309', stops: ['#78350f', '#451a03', '#1f0b01'], accent: '#fbbf24', lightText: false },
+            { id: 'orange',   name: 'オレンジ',     swatch: '#c2410c', stops: ['#7c2d12', '#431407', '#1f0903'], accent: '#fb923c', lightText: false },
+            { id: 'red',      name: 'レッド',       swatch: '#b91c1c', stops: ['#7f1d1d', '#450a0a', '#1f0404'], accent: '#f87171', lightText: false },
+            { id: 'rose',     name: 'ローズ',       swatch: '#be123c', stops: ['#881337', '#4c0519', '#21020b'], accent: '#fb7185', lightText: false },
+            { id: 'pink',     name: 'ピンク',       swatch: '#be185d', stops: ['#831843', '#500724', '#240310'], accent: '#f472b6', lightText: false },
+            { id: 'fuchsia',  name: 'フューシャ',   swatch: '#a21caf', stops: ['#701a75', '#4a044e', '#210124'], accent: '#e879f9', lightText: false },
+            // 特別色：金色・銀色
+            { id: 'gold',     name: '金色 (Gold)',  swatch: 'linear-gradient(135deg, #fde047, #ca8a04, #713f12)', stops: ['#422006', '#854d0e', '#eab308', '#713f12', '#271303'], accent: '#fef08a', metallic: 'gold' },
+            { id: 'silver',   name: '銀色 (Silver)',swatch: 'linear-gradient(135deg, #f8fafc, #94a3b8, #334155)', stops: ['#1e293b', '#64748b', '#cbd5e1', '#475569', '#0f172a'], accent: '#f1f5f9', metallic: 'silver' }
+        ];
+
         let state = {
             accessToken: null,
             limit: 10,
@@ -164,7 +246,23 @@
             tracks: []
         };
 
+        // 画像キャッシュ（一括生成を高速化）
+        const imageCache = new Map();
+        // 一括生成された画像データの保持
+        let generatedBatchImages = [];
+
+        function showToast(msg) {
+            const toast = document.getElementById('toastMessage');
+            const text = document.getElementById('toastText');
+            text.innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3500);
+        }
+
         window.onload = async function() {
+            renderThemePalette();
             setupRedirectUriInfo();
             
             const savedClientId = localStorage.getItem('spotify_client_id');
@@ -177,6 +275,34 @@
                 loadDemoData();
             }
         };
+
+        function renderThemePalette() {
+            const container = document.getElementById('themePalette');
+            container.innerHTML = '';
+
+            THEMES.forEach(t => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.title = t.name;
+                btn.dataset.themeId = t.id;
+                btn.onclick = () => setTheme(t.id);
+                btn.style.background = t.swatch;
+                
+                const isSelected = state.theme === t.id;
+                btn.className = `w-full aspect-square rounded-lg transition transform hover:scale-110 focus:outline-none relative flex items-center justify-center ${
+                    isSelected ? 'ring-2 ring-white scale-105 shadow-lg' : 'ring-1 ring-white/15 opacity-85 hover:opacity-100'
+                }`;
+
+                if (t.id === 'gold' || t.id === 'silver') {
+                    const badge = document.createElement('span');
+                    badge.className = 'text-[10px] font-extrabold text-black/80 bg-white/70 px-1 rounded shadow-sm';
+                    badge.innerText = t.id === 'gold' ? '金' : '銀';
+                    btn.appendChild(badge);
+                }
+
+                container.appendChild(btn);
+            });
+        }
 
         function setupRedirectUriInfo() {
             let redirectUri = window.location.origin + window.location.pathname;
@@ -208,60 +334,50 @@
             }
         }
 
-        function generateRandomString(length) {
-            const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-            const values = crypto.getRandomValues(new Uint8Array(length));
-            return values.reduce((acc, x) => acc + possible[x % possible.length], "");
-        }
-
-        async function sha256(plain) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(plain);
-            return window.crypto.subtle.digest('SHA-256', data);
-        }
-
-        function base64encode(input) {
-            return btoa(String.fromCharCode.apply(null, new Uint8Array(input)))
-                .replace(/=/g, '')
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_');
-        }
-
         async function handleSpotifyLogin() {
-            let clientId = document.getElementById('clientIdInput').value.trim();
-            if (!clientId) {
-                alert("Spotify Client ID を入力してください。");
+            let rawClientId = document.getElementById('clientIdInput').value || '';
+
+            let clientId = rawClientId
+                .replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
+                    return String.fromCharCode(s.charCodeAt(0) - 0xfee0);
+                })
+                .replace(/[^a-zA-Z0-9]/g, '');
+
+            if (!clientId || clientId.length !== 32) {
+                showToast("有効な Spotify Client ID (32桁の半角英数字) を入力してください。");
                 return;
             }
 
-            // 英数字以外の余計な文字（スペースなど）を除去
-            clientId = clientId.replace(/[^a-zA-Z0-9]/g, '');
-
-            let redirectUri = document.getElementById('currentRedirectUri').value.trim();
-
-            const codeVerifier = generateRandomString(64);
-            const hashed = await sha256(codeVerifier);
-            const codeChallenge = base64encode(hashed);
-
-            localStorage.setItem('spotify_code_verifier', codeVerifier);
+            document.getElementById('clientIdInput').value = clientId;
             localStorage.setItem('spotify_client_id', clientId);
 
+            let redirectUri = document.getElementById('currentRedirectUri').value.trim();
             const scope = 'user-top-read';
 
-            // クエリパラメータを確実に構造化（response_type=code が100%渡るように固定）
-            const params = new URLSearchParams();
-            params.append('response_type', 'code');
-            params.append('client_id', clientId);
-            params.append('scope', scope);
-            params.append('code_challenge_method', 'S256');
-            params.append('code_challenge', codeChallenge);
-            params.append('redirect_uri', redirectUri);
+            const authUrl = 'https://accounts.spotify.com/authorize' +
+                '?client_id=' + encodeURIComponent(clientId) +
+                '&response_type=token' +
+                '&redirect_uri=' + encodeURIComponent(redirectUri) +
+                '&scope=' + encodeURIComponent(scope) +
+                '&show_dialog=true';
 
-            const authUrl = `https://accounts.spotify.com/authorize?${params.toString()}`;
             window.location.href = authUrl;
         }
 
         async function checkAuthCallback() {
+            const hash = window.location.hash.substring(1);
+            if (hash) {
+                const params = new URLSearchParams(hash);
+                const token = params.get('access_token');
+                if (token) {
+                    state.accessToken = token;
+                    document.getElementById('userStatus').innerHTML = '<span class="text-green-400 font-bold"><i class="fa-solid fa-circle-check"></i> Spotify 連携済み</span>';
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    await fetchTopTracks();
+                    return;
+                }
+            }
+
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get('code');
 
@@ -292,8 +408,6 @@
                             document.getElementById('userStatus').innerHTML = '<span class="text-green-400 font-bold"><i class="fa-solid fa-circle-check"></i> Spotify 連携済み</span>';
                             window.history.replaceState({}, document.title, window.location.pathname);
                             await fetchTopTracks();
-                        } else {
-                            console.error('トークン取得エラー:', data);
                         }
                     } catch (err) {
                         console.error('認証エラー:', err);
@@ -318,13 +432,13 @@
                 state.tracks = data.items.map(item => ({
                     name: item.name,
                     artist: item.artists.map(a => a.name).join(', '),
-                    albumArt: item.album.images[0]?.url || 'https://via.placeholder.com/300'
+                    albumArt: item.album.images[0]?.url || 'https://placehold.co/300x300/1f2937/9ca3af?text=No+Image'
                 }));
 
                 renderCanvas();
             } catch (err) {
                 console.error(err);
-                alert("Spotifyデータの取得に失敗しました。");
+                showToast("Spotifyデータの取得に失敗しました。デモデータを表示します。");
                 loadDemoData();
             }
         }
@@ -345,13 +459,15 @@
 
         function setLimit(limit) {
             state.limit = limit;
-            document.getElementById('limit10Btn').className = limit === 10 
-                ? 'py-2 rounded-lg text-sm font-semibold bg-green-500/20 text-green-400 border border-green-500/50'
-                : 'py-2 rounded-lg text-sm font-semibold bg-gray-800 text-gray-400 border border-transparent hover:border-gray-700';
-            
-            document.getElementById('limit50Btn').className = limit === 50 
-                ? 'py-2 rounded-lg text-sm font-semibold bg-green-500/20 text-green-400 border border-green-500/50'
-                : 'py-2 rounded-lg text-sm font-semibold bg-gray-800 text-gray-400 border border-transparent hover:border-gray-700';
+            const limits = [5, 10, 15, 50];
+            limits.forEach(l => {
+                const btn = document.getElementById(`limit${l}Btn`);
+                if (btn) {
+                    btn.className = l === limit
+                        ? 'py-2 rounded-lg text-xs sm:text-sm font-semibold bg-green-500/20 text-green-400 border border-green-500/50 transition'
+                        : 'py-2 rounded-lg text-xs sm:text-sm font-semibold bg-gray-800 text-gray-400 border border-transparent hover:border-gray-700 transition';
+                }
+            });
 
             renderCanvas();
         }
@@ -365,63 +481,103 @@
             }
         }
 
-        function setTheme(theme) {
-            state.theme = theme;
+        function setTheme(themeId) {
+            state.theme = themeId;
+            const themeObj = THEMES.find(t => t.id === themeId);
+            if (themeObj) {
+                document.getElementById('currentThemeLabel').innerText = themeObj.name;
+            }
+            renderThemePalette();
             renderCanvas();
+        }
+
+        // 指定したテーマIDで任意のCanvasに描画するコア関数
+        async function drawRankingToCanvas(targetCanvas, themeId) {
+            const ctx = targetCanvas.getContext('2d');
+            const themeObj = THEMES.find(t => t.id === themeId) || THEMES[0];
+
+            // 件数ごとの最適解像度設定
+            if (state.limit === 5) {
+                targetCanvas.width = 800;
+                targetCanvas.height = 960;
+            } else if (state.limit === 10) {
+                targetCanvas.width = 800;
+                targetCanvas.height = 1200;
+            } else if (state.limit === 15) {
+                targetCanvas.width = 850;
+                targetCanvas.height = 1480;
+            } else {
+                targetCanvas.width = 1200;
+                targetCanvas.height = 1600;
+            }
+
+            drawBackground(ctx, targetCanvas.width, targetCanvas.height, themeObj);
+            drawHeader(ctx, targetCanvas.width, themeObj);
+
+            const displayTracks = state.tracks.slice(0, state.limit);
+            
+            if (state.limit === 5) {
+                await drawTop5Layout(ctx, displayTracks, targetCanvas.width, themeObj);
+            } else if (state.limit === 10) {
+                await drawTop10Layout(ctx, displayTracks, targetCanvas.width, themeObj);
+            } else if (state.limit === 15) {
+                await drawTop15Layout(ctx, displayTracks, targetCanvas.width, themeObj);
+            } else {
+                await drawTop50Layout(ctx, displayTracks, targetCanvas.width, themeObj);
+            }
+
+            drawFooter(ctx, targetCanvas.width, targetCanvas.height, themeObj);
         }
 
         async function renderCanvas() {
             const canvas = document.getElementById('rankingCanvas');
-            const ctx = canvas.getContext('2d');
-
-            if (state.limit === 10) {
-                canvas.width = 800;
-                canvas.height = 1200;
-            } else {
-                canvas.width = 1200;
-                canvas.height = 1600;
-            }
-            
+            await drawRankingToCanvas(canvas, state.theme);
             document.getElementById('canvasDimensions').innerText = `${canvas.width} x ${canvas.height} px`;
-
-            drawBackground(ctx, canvas.width, canvas.height);
-            drawHeader(ctx, canvas.width);
-
-            const displayTracks = state.tracks.slice(0, state.limit);
-            
-            if (state.limit === 10) {
-                await drawTop10Layout(ctx, displayTracks, canvas.width);
-            } else {
-                await drawTop50Layout(ctx, displayTracks, canvas.width);
-            }
-
-            drawFooter(ctx, canvas.width, canvas.height);
         }
 
-        function drawBackground(ctx, width, height) {
+        function drawBackground(ctx, width, height, themeObj) {
             let grad = ctx.createLinearGradient(0, 0, width, height);
-            if (state.theme === 'dark') {
-                grad.addColorStop(0, '#121212');
-                grad.addColorStop(0.5, '#000000');
-                grad.addColorStop(1, '#051f0e');
-            } else if (state.theme === 'purple') {
-                grad.addColorStop(0, '#1a0b2e');
-                grad.addColorStop(0.5, '#11071f');
-                grad.addColorStop(1, '#090014');
-            } else if (state.theme === 'emerald') {
-                grad.addColorStop(0, '#022c22');
-                grad.addColorStop(0.5, '#064e3b');
-                grad.addColorStop(1, '#021812');
+            
+            if (themeObj.metallic === 'gold') {
+                // 高級感あるメタリックゴールドの輝きグラデーション
+                grad.addColorStop(0.0, '#1c1204');
+                grad.addColorStop(0.25, '#6b4708');
+                grad.addColorStop(0.5, '#b8860b');
+                grad.addColorStop(0.75, '#593a06');
+                grad.addColorStop(1.0, '#170e02');
+            } else if (themeObj.metallic === 'silver') {
+                // 高級感あるメタリックシルバーの輝きグラデーション
+                grad.addColorStop(0.0, '#0f172a');
+                grad.addColorStop(0.25, '#475569');
+                grad.addColorStop(0.5, '#94a3b8');
+                grad.addColorStop(0.75, '#334155');
+                grad.addColorStop(1.0, '#090d16');
+            } else {
+                const stops = themeObj.stops;
+                grad.addColorStop(0, stops[0]);
+                grad.addColorStop(0.55, stops[1]);
+                grad.addColorStop(1, stops[2]);
             }
 
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, width, height);
+
+            // メタリックテーマ時は視認性を高めるため中央にダークベールと光沢ラインを追加
+            if (themeObj.metallic) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+                ctx.fillRect(0, 0, width, height);
+
+                // 外枠のメタリックボーダー
+                ctx.strokeStyle = themeObj.metallic === 'gold' ? 'rgba(253, 224, 71, 0.45)' : 'rgba(241, 245, 249, 0.45)';
+                ctx.lineWidth = 6;
+                ctx.strokeRect(18, 18, width - 36, height - 36);
+            }
         }
 
-        function drawHeader(ctx, width) {
+        function drawHeader(ctx, width, themeObj) {
             ctx.textAlign = 'left';
             
-            ctx.fillStyle = '#1DB954';
+            ctx.fillStyle = themeObj.accent;
             ctx.beginPath();
             ctx.arc(60, 70, 18, 0, Math.PI * 2);
             ctx.fill();
@@ -433,12 +589,62 @@
             const rangeText = state.timeRange === 'long_term' ? 'Past 1 Year / All Time' : 
                              state.timeRange === 'medium_term' ? 'Past 6 Months' : 'Past 4 Weeks';
             
-            ctx.fillStyle = '#9CA3AF';
+            ctx.fillStyle = themeObj.metallic ? '#E5E7EB' : '#9CA3AF';
             ctx.font = '600 18px "Plus Jakarta Sans", sans-serif';
             ctx.fillText(`RANKING TOP ${state.limit} • ${rangeText}`, 95, 110);
         }
 
-        async function drawTop10Layout(ctx, tracks, width) {
+        // TOP 5 用リッチ・ビッグカードレイアウト
+        async function drawTop5Layout(ctx, tracks, width, themeObj) {
+            const startY = 155;
+            const rowHeight = 148;
+
+            for (let i = 0; i < tracks.length; i++) {
+                const track = tracks[i];
+                const y = startY + (i * rowHeight);
+
+                ctx.fillStyle = themeObj.metallic ? 'rgba(0, 0, 0, 0.45)' : 'rgba(255, 255, 255, 0.05)';
+                ctx.beginPath();
+                ctx.roundRect(50, y, width - 100, 128, 16);
+                ctx.fill();
+
+                if (themeObj.metallic) {
+                    ctx.strokeStyle = themeObj.metallic === 'gold' ? 'rgba(253, 224, 71, 0.25)' : 'rgba(255, 255, 255, 0.2)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+
+                ctx.fillStyle = i === 0 ? themeObj.accent : '#D1D5DB';
+                ctx.font = 'extrabold 38px "Plus Jakarta Sans", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`#${i + 1}`, 98, y + 78);
+
+                try {
+                    const img = await loadImage(track.albumArt);
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.roundRect(145, y + 16, 96, 96, 12);
+                    ctx.clip();
+                    ctx.drawImage(img, 145, y + 16, 96, 96);
+                    ctx.restore();
+                } catch (e) {
+                    ctx.fillStyle = '#374151';
+                    ctx.fillRect(145, y + 16, 96, 96);
+                }
+
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = 'bold 26px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(truncateText(ctx, track.name, width - 340), 265, y + 58);
+
+                ctx.fillStyle = themeObj.metallic ? '#E5E7EB' : '#9CA3AF';
+                ctx.font = '500 19px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(truncateText(ctx, track.artist, width - 340), 265, y + 92);
+            }
+        }
+
+        // TOP 10 用スタンダードレイアウト
+        async function drawTop10Layout(ctx, tracks, width, themeObj) {
             const startY = 150;
             const rowHeight = 95;
 
@@ -446,11 +652,12 @@
                 const track = tracks[i];
                 const y = startY + (i * rowHeight);
 
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+                ctx.fillStyle = themeObj.metallic ? 'rgba(0, 0, 0, 0.42)' : 'rgba(255, 255, 255, 0.04)';
+                ctx.beginPath();
                 ctx.roundRect(50, y, width - 100, 80, 12);
                 ctx.fill();
 
-                ctx.fillStyle = i < 3 ? '#1DB954' : '#6B7280';
+                ctx.fillStyle = i < 3 ? themeObj.accent : '#9CA3AF';
                 ctx.font = 'extrabold 28px "Plus Jakarta Sans", sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(`#${i + 1}`, 90, y + 50);
@@ -473,13 +680,57 @@
                 ctx.font = 'bold 20px "Plus Jakarta Sans", sans-serif';
                 ctx.fillText(truncateText(ctx, track.name, width - 320), 210, y + 40);
 
-                ctx.fillStyle = '#9CA3AF';
+                ctx.fillStyle = themeObj.metallic ? '#D1D5DB' : '#9CA3AF';
                 ctx.font = '500 15px "Plus Jakarta Sans", sans-serif';
                 ctx.fillText(truncateText(ctx, track.artist, width - 320), 210, y + 63);
             }
         }
 
-        async function drawTop50Layout(ctx, tracks, width) {
+        // TOP 15 用スマートリストレイアウト
+        async function drawTop15Layout(ctx, tracks, width, themeObj) {
+            const startY = 148;
+            const rowHeight = 82;
+
+            for (let i = 0; i < tracks.length; i++) {
+                const track = tracks[i];
+                const y = startY + (i * rowHeight);
+
+                ctx.fillStyle = themeObj.metallic ? 'rgba(0, 0, 0, 0.42)' : 'rgba(255, 255, 255, 0.04)';
+                ctx.beginPath();
+                ctx.roundRect(50, y, width - 100, 70, 10);
+                ctx.fill();
+
+                ctx.fillStyle = i < 3 ? themeObj.accent : '#9CA3AF';
+                ctx.font = 'extrabold 24px "Plus Jakarta Sans", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`#${i + 1}`, 90, y + 44);
+
+                try {
+                    const img = await loadImage(track.albumArt);
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.roundRect(130, y + 9, 52, 52, 7);
+                    ctx.clip();
+                    ctx.drawImage(img, 130, y + 9, 52, 52);
+                    ctx.restore();
+                } catch (e) {
+                    ctx.fillStyle = '#374151';
+                    ctx.fillRect(130, y + 9, 52, 52);
+                }
+
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = 'bold 18px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(truncateText(ctx, track.name, width - 310), 200, y + 34);
+
+                ctx.fillStyle = themeObj.metallic ? '#D1D5DB' : '#9CA3AF';
+                ctx.font = '500 14px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(truncateText(ctx, track.artist, width - 310), 200, y + 55);
+            }
+        }
+
+        // TOP 50 用2カラムレイアウト
+        async function drawTop50Layout(ctx, tracks, width, themeObj) {
             const startY = 150;
             const cols = 2;
             const colWidth = (width - 130) / cols;
@@ -493,7 +744,14 @@
                 const x = 50 + (col * (colWidth + 30));
                 const y = startY + (row * rowHeight);
 
-                ctx.fillStyle = i < 3 ? '#1DB954' : '#6B7280';
+                if (themeObj.metallic) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+                    ctx.beginPath();
+                    ctx.roundRect(x - 4, y + 2, colWidth + 8, 46, 6);
+                    ctx.fill();
+                }
+
+                ctx.fillStyle = i < 3 ? themeObj.accent : '#9CA3AF';
                 ctx.font = 'bold 16px "Plus Jakarta Sans", sans-serif';
                 ctx.textAlign = 'right';
                 ctx.fillText(`${i + 1}`, x + 25, y + 32);
@@ -516,24 +774,30 @@
                 ctx.font = 'bold 14px "Plus Jakarta Sans", sans-serif';
                 ctx.fillText(truncateText(ctx, track.name, colWidth - 90), x + 80, y + 26);
 
-                ctx.fillStyle = '#9CA3AF';
+                ctx.fillStyle = themeObj.metallic ? '#E5E7EB' : '#9CA3AF';
                 ctx.font = '500 12px "Plus Jakarta Sans", sans-serif';
                 ctx.fillText(truncateText(ctx, track.artist, colWidth - 90), x + 80, y + 41);
             }
         }
 
-        function drawFooter(ctx, width, height) {
+        function drawFooter(ctx, width, height, themeObj) {
             ctx.textAlign = 'center';
-            ctx.fillStyle = '#4B5563';
+            ctx.fillStyle = themeObj.metallic ? 'rgba(255, 255, 255, 0.65)' : '#6B7280';
             ctx.font = '600 14px "Plus Jakarta Sans", sans-serif';
-            ctx.fillText('POWERED BY SPOTIFY API • CANVAS GENERATOR', width / 2, height - 30);
+            ctx.fillText('POWERED BY SPOTIFY API • CANVAS GENERATOR', width / 2, height - 28);
         }
 
         function loadImage(src) {
+            if (imageCache.has(src)) {
+                return Promise.resolve(imageCache.get(src));
+            }
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.crossOrigin = 'Anonymous';
-                img.onload = () => resolve(img);
+                img.onload = () => {
+                    imageCache.set(src, img);
+                    resolve(img);
+                };
                 img.onerror = (e) => reject(e);
                 img.src = src;
             });
@@ -551,10 +815,138 @@
         function downloadCanvas() {
             const canvas = document.getElementById('rankingCanvas');
             const link = document.createElement('a');
-            link.download = `spotify-top-${state.limit}-ranking.png`;
+            link.download = `spotify-top-${state.limit}-${state.theme}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
+        }
+
+        // 全18色（16色＋金＋銀）一括生成処理
+        async function generateAll18Themes() {
+            const btn = document.getElementById('batchGenerateBtn');
+            const progContainer = document.getElementById('batchProgressContainer');
+            const progText = document.getElementById('batchProgressText');
+            const progPercent = document.getElementById('batchProgressPercent');
+            const progBar = document.getElementById('batchProgressBar');
+
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            progContainer.classList.remove('hidden');
+            generatedBatchImages = [];
+
+            const offscreenCanvas = document.createElement('canvas');
+
+            try {
+                for (let i = 0; i < THEMES.length; i++) {
+                    const theme = THEMES[i];
+                    const current = i + 1;
+                    const pct = Math.round((current / THEMES.length) * 100);
+
+                    progText.innerText = `生成中: ${theme.name} (${current} / ${THEMES.length})`;
+                    progPercent.innerText = `${pct}%`;
+                    progBar.style.width = `${pct}%`;
+
+                    // UI描画をブロックしないよう小休止
+                    await new Promise(r => setTimeout(r, 30));
+
+                    await drawRankingToCanvas(offscreenCanvas, theme.id);
+                    const dataUrl = offscreenCanvas.toDataURL('image/png');
+
+                    generatedBatchImages.push({
+                        id: theme.id,
+                        name: theme.name,
+                        filename: `spotify-top${state.limit}-${String(current).padStart(2, '0')}-${theme.id}.png`,
+                        dataUrl: dataUrl
+                    });
+                }
+
+                openBatchModal();
+            } catch (err) {
+                console.error('一括生成エラー:', err);
+                showToast('画像の一括生成中にエラーが発生しました。');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                setTimeout(() => {
+                    progContainer.classList.add('hidden');
+                }, 1000);
+            }
+        }
+
+        function openBatchModal() {
+            const modal = document.getElementById('batchModal');
+            const grid = document.getElementById('batchGrid');
+            grid.innerHTML = '';
+
+            generatedBatchImages.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-950 border border-gray-800 rounded-xl p-2 flex flex-col items-center gap-2';
+
+                const img = document.createElement('img');
+                img.src = item.dataUrl;
+                img.alt = item.name;
+                img.className = 'w-full h-auto rounded-lg shadow border border-gray-800';
+
+                const label = document.createElement('span');
+                label.className = 'text-xs font-bold text-gray-200 text-center truncate w-full';
+                label.innerText = item.name;
+
+                const dlBtn = document.createElement('button');
+                dlBtn.className = 'w-full bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 transition';
+                dlBtn.innerHTML = '<i class="fa-solid fa-download"></i> 保存';
+                dlBtn.onclick = () => {
+                    const a = document.createElement('a');
+                    a.href = item.dataUrl;
+                    a.download = item.filename;
+                    a.click();
+                };
+
+                card.appendChild(img);
+                card.appendChild(label);
+                card.appendChild(dlBtn);
+                grid.appendChild(card);
+            });
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeBatchModal() {
+            document.getElementById('batchModal').classList.add('hidden');
+        }
+
+        // JSZipを使って18枚を1つのZIPファイルとして一括ダウンロード
+        async function downloadAllAsZip() {
+            if (!generatedBatchImages.length) return;
+            const zipBtn = document.getElementById('downloadZipBtn');
+            const originalHtml = zipBtn.innerHTML;
+            zipBtn.disabled = true;
+            zipBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ZIP圧縮中...';
+
+            try {
+                const zip = new JSZip();
+                const folder = zip.folder(`spotify-top${state.limit}-18colors`);
+
+                generatedBatchImages.forEach(item => {
+                    const base64Data = item.dataUrl.split(',')[1];
+                    folder.file(item.filename, base64Data, { base64: true });
+                });
+
+                const content = await zip.generateAsync({ type: 'blob' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = `spotify-top${state.limit}-all-18-themes.zip`;
+                link.click();
+                URL.revokeObjectURL(link.href);
+
+                showToast('全18色のZIPファイルのダウンロードを開始しました！');
+            } catch (e) {
+                console.error(e);
+                showToast('ZIP圧縮に失敗しました。個別ボタンから保存してください。');
+            } finally {
+                zipBtn.disabled = false;
+                zipBtn.innerHTML = originalHtml;
+            }
         }
     </script>
 </body>
 </html>
+```
