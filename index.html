@@ -1,4 +1,4 @@
-```html
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -233,30 +233,6 @@
             // 金色・銀色
             { id: 'gold',     name: 'ゴールド (Gold)',        swatch: 'linear-gradient(135deg, #fef08a, #eab308, #713f12)', stops: ['#241503', '#9a6708', '#facc15', '#784e05', '#170d02'], accent: '#fef08a', border: 'rgba(253, 224, 71, 0.75)' },
             { id: 'silver',   name: 'シルバー (Silver)',      swatch: 'linear-gradient(135deg, #ffffff, #cbd5e1, #334155)', stops: ['#0f172a', '#64748b', '#e2e8f0', '#475569', '#090d16'], accent: '#ffffff', border: 'rgba(241, 245, 249, 0.75)' }
-        ];
-
-        // 16色 ＋ 金色 ＋ 銀色（計18テーマ）定義
-        const THEMES = [
-            // 16色
-            { id: 'dark',     name: 'ダーク',       swatch: '#121212', stops: ['#161616', '#050505', '#0a1f12'], accent: '#1DB954', lightText: false },
-            { id: 'slate',    name: 'スレート',     swatch: '#334155', stops: ['#1e293b', '#0f172a', '#020617'], accent: '#38bdf8', lightText: false },
-            { id: 'midnight', name: 'ミッドナイト', swatch: '#1e1b4b', stops: ['#1e1b4b', '#0f172a', '#090d16'], accent: '#818cf8', lightText: false },
-            { id: 'purple',   name: 'パープル',     swatch: '#581c87', stops: ['#2e1065', '#170736', '#090014'], accent: '#c084fc', lightText: false },
-            { id: 'indigo',   name: 'インディゴ',   swatch: '#3730a3', stops: ['#312e81', '#1e1b4b', '#0c0a24'], accent: '#a5b4fc', lightText: false },
-            { id: 'blue',     name: 'ブルー',       swatch: '#1d4ed8', stops: ['#1e3a8a', '#0f2557', '#06112b'], accent: '#60a5fa', lightText: false },
-            { id: 'cyan',     name: 'シアン',       swatch: '#0e7490', stops: ['#164e63', '#083344', '#031922'], accent: '#22d3ee', lightText: false },
-            { id: 'teal',     name: 'ティール',     swatch: '#0f766e', stops: ['#134e4a', '#042f2e', '#021717'], accent: '#2dd4bf', lightText: false },
-            { id: 'emerald',  name: 'エメラルド',   swatch: '#047857', stops: ['#064e3b', '#022c22', '#011812'], accent: '#34d399', lightText: false },
-            { id: 'lime',     name: 'ライム',       swatch: '#4d7c0f', stops: ['#365314', '#1a2e05', '#0d1703'], accent: '#a3e635', lightText: false },
-            { id: 'amber',    name: 'アンバー',     swatch: '#b45309', stops: ['#78350f', '#451a03', '#1f0b01'], accent: '#fbbf24', lightText: false },
-            { id: 'orange',   name: 'オレンジ',     swatch: '#c2410c', stops: ['#7c2d12', '#431407', '#1f0903'], accent: '#fb923c', lightText: false },
-            { id: 'red',      name: 'レッド',       swatch: '#b91c1c', stops: ['#7f1d1d', '#450a0a', '#1f0404'], accent: '#f87171', lightText: false },
-            { id: 'rose',     name: 'ローズ',       swatch: '#be123c', stops: ['#881337', '#4c0519', '#21020b'], accent: '#fb7185', lightText: false },
-            { id: 'pink',     name: 'ピンク',       swatch: '#be185d', stops: ['#831843', '#500724', '#240310'], accent: '#f472b6', lightText: false },
-            { id: 'fuchsia',  name: 'フューシャ',   swatch: '#a21caf', stops: ['#701a75', '#4a044e', '#210124'], accent: '#e879f9', lightText: false },
-            // 特別色：金色・銀色
-            { id: 'gold',     name: '金色 (Gold)',  swatch: 'linear-gradient(135deg, #fde047, #ca8a04, #713f12)', stops: ['#422006', '#854d0e', '#eab308', '#713f12', '#271303'], accent: '#fef08a', metallic: 'gold' },
-            { id: 'silver',   name: '銀色 (Silver)',swatch: 'linear-gradient(135deg, #f8fafc, #94a3b8, #334155)', stops: ['#1e293b', '#64748b', '#cbd5e1', '#475569', '#0f172a'], accent: '#f1f5f9', metallic: 'silver' }
         ];
 
         let state = {
@@ -525,6 +501,29 @@
             }
             renderThemePalette();
             renderCanvas();
+        }
+
+        function setLimit(newLimit) {
+            state.limit = newLimit;
+            [5, 10, 15, 50].forEach(num => {
+                const btn = document.getElementById(`limit${num}Btn`);
+                if (!btn) return;
+                if (num === newLimit) {
+                    btn.className = 'py-2 rounded-lg text-xs sm:text-sm font-semibold bg-green-500/20 text-green-400 border border-green-500/50 transition';
+                } else {
+                    btn.className = 'py-2 rounded-lg text-xs sm:text-sm font-semibold bg-gray-800 text-gray-400 border border-transparent hover:border-gray-700 transition';
+                }
+            });
+            renderCanvas();
+        }
+
+        async function handleTimeRangeChange() {
+            state.timeRange = document.getElementById('timeRangeSelect').value;
+            if (state.accessToken) {
+                await fetchTopTracks();
+            } else {
+                renderCanvas();
+            }
         }
 
         async function drawRankingToCanvas(targetCanvas, themeId) {
