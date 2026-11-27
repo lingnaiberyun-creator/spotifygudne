@@ -7,8 +7,6 @@
     <title>Spotify Top Tracks Canvas Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- 一括生成ZIPダウンロード用 JSZip -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
         body {
@@ -120,8 +118,8 @@
 
                     <div>
                         <div class="flex items-center justify-between mb-2">
-                            <label class="block text-sm text-gray-300">背景テーマ（16色＋金＋銀）</label>
-                            <span id="currentThemeLabel" class="text-xs font-semibold text-green-400">ダーク (Dark)</span>
+                            <label class="block text-sm text-gray-300">背景テーマ（ビビッド・メタリック全18色）</label>
+                            <span id="currentThemeLabel" class="text-xs font-semibold text-green-400">メタリック・ダーク</span>
                         </div>
                         <!-- 18色パレットコンテナ -->
                         <div id="themePalette" class="grid grid-cols-6 gap-2.5 bg-gray-900/60 p-3 rounded-xl border border-gray-800">
@@ -137,7 +135,7 @@
                     </button>
 
                     <button id="batchGenerateBtn" onclick="generateAll18Themes()" class="w-full bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 hover:from-amber-300 hover:to-yellow-500 text-black font-extrabold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30 transition">
-                        <i class="fa-solid fa-layer-group"></i> 全18色（16色＋金＋銀）を一括生成
+                        <i class="fa-solid fa-layer-group"></i> 全18色（ビビッドメタル）を一括生成
                     </button>
 
                     <!-- 一括生成プログレス表示 -->
@@ -177,11 +175,11 @@
                     <h3 class="text-lg font-extrabold text-white flex items-center gap-2">
                         <i class="fa-solid fa-images text-amber-400"></i> 全18色 一括生成完了！
                     </h3>
-                    <p class="text-xs text-gray-400 mt-0.5">ZIPでまとめて保存するか、スマホの場合は各画像を長押し/個別タップで保存できます</p>
+                    <p class="text-xs text-gray-400 mt-0.5">PNG18枚を連続で一括ダウンロードするか、各画像をタップして保存できます</p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button id="downloadZipBtn" onclick="downloadAllAsZip()" class="bg-spotify-green hover:bg-green-400 text-black font-bold text-xs sm:text-sm py-2 px-4 rounded-lg flex items-center gap-1.5 transition">
-                        <i class="fa-solid fa-file-zipper"></i> ZIPで一括ダウンロード
+                    <button id="downloadAllPngBtn" onclick="downloadAllAsPngs()" class="bg-spotify-green hover:bg-green-400 text-black font-bold text-xs sm:text-sm py-2 px-4 rounded-lg flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-images"></i> PNG18枚を一括ダウンロード
                     </button>
                     <button onclick="closeBatchModal()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded-lg transition">
                         <i class="fa-solid fa-xmark text-lg"></i>
@@ -205,13 +203,36 @@
     </footer>
 
     <script>
-        // デモ用トラックデータ
+        // デモ用トラックデータ（人気度スコア付き）
         const DEMO_TRACKS = [
-            { name: "Blinding Lights", artist: "The Weeknd", albumArt: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300&auto=format&fit=crop" },
-            { name: "Stay", artist: "The Kid LAROI, Justin Bieber", albumArt: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop" },
-            { name: "As It Was", artist: "Harry Styles", albumArt: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&auto=format&fit=crop" },
-            { name: "Starboy", artist: "The Weeknd, Daft Punk", albumArt: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop" },
-            { name: "Heat Waves", artist: "Glass Animals", albumArt: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&auto=format&fit=crop" }
+            { name: "Blinding Lights", artist: "The Weeknd", popularity: 96, albumArt: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300&auto=format&fit=crop" },
+            { name: "Stay", artist: "The Kid LAROI, Justin Bieber", popularity: 92, albumArt: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop" },
+            { name: "As It Was", artist: "Harry Styles", popularity: 94, albumArt: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&auto=format&fit=crop" },
+            { name: "Starboy", artist: "The Weeknd, Daft Punk", popularity: 95, albumArt: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop" },
+            { name: "Heat Waves", artist: "Glass Animals", popularity: 91, albumArt: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&auto=format&fit=crop" }
+        ];
+
+        // 全18色：すべて金・銀と同じ高彩度（ビビッド）メタリック色調に統一
+        const THEMES = [
+            { id: 'dark',     name: 'メタル・オブシディアン', swatch: 'linear-gradient(135deg, #52525b, #18181b, #09090b)', stops: ['#09090b', '#27272a', '#52525b', '#18181b', '#050505'], accent: '#4ade80', border: 'rgba(161, 161, 170, 0.55)' },
+            { id: 'slate',    name: 'メタル・スチール',       swatch: 'linear-gradient(135deg, #94a3b8, #334155, #0f172a)', stops: ['#090d16', '#1e293b', '#64748b', '#1e293b', '#060911'], accent: '#7dd3fc', border: 'rgba(148, 163, 184, 0.55)' },
+            { id: 'midnight', name: 'メタル・ミッドナイト',   swatch: 'linear-gradient(135deg, #6366f1, #1e1b4b, #090d16)', stops: ['#07091f', '#1e1b4b', '#4f46e5', '#17143b', '#050614'], accent: '#a5b4fc', border: 'rgba(129, 140, 248, 0.6)' },
+            { id: 'purple',   name: 'メタル・パープル',       swatch: 'linear-gradient(135deg, #c084fc, #6b21a8, #2e1065)', stops: ['#170533', '#581c87', '#a855f7', '#4c1d95', '#100324'], accent: '#e9d5ff', border: 'rgba(192, 132, 252, 0.65)' },
+            { id: 'indigo',   name: 'メタル・インディゴ',     swatch: 'linear-gradient(135deg, #818cf8, #3730a3, #1e1b4b)', stops: ['#0e0c2e', '#312e81', '#6366f1', '#272469', '#09071f'], accent: '#c7d2fe', border: 'rgba(129, 140, 248, 0.65)' },
+            { id: 'blue',     name: 'メタル・コバルトブルー', swatch: 'linear-gradient(135deg, #60a5fa, #1d4ed8, #172554)', stops: ['#081433', '#1e40af', '#3b82f6', '#17338a', '#050c21'], accent: '#bae6fd', border: 'rgba(96, 165, 250, 0.65)' },
+            { id: 'cyan',     name: 'メタル・シアン',         swatch: 'linear-gradient(135deg, #22d3ee, #0e7490, #083344)', stops: ['#041b24', '#0e7490', '#06b6d4', '#0b566b', '#021017'], accent: '#a5f3fc', border: 'rgba(34, 211, 238, 0.65)' },
+            { id: 'teal',     name: 'メタル・ティール',       swatch: 'linear-gradient(135deg, #2dd4bf, #0f766e, #042f2e)', stops: ['#021a19', '#0f766e', '#14b8a6', '#0b5751', '#01100f'], accent: '#99f6e4', border: 'rgba(45, 212, 191, 0.65)' },
+            { id: 'emerald',  name: 'メタル・エメラルド',     swatch: 'linear-gradient(135deg, #34d399, #047857, #022c22)', stops: ['#021c15', '#047857', '#10b981', '#035941', '#01120d'], accent: '#a7f3d0', border: 'rgba(52, 211, 153, 0.65)' },
+            { id: 'lime',     name: 'メタル・ライム',         swatch: 'linear-gradient(135deg, #a3e635, #4d7c0f, #1a2e05)', stops: ['#0f1c03', '#4d7c0f', '#84cc16', '#3b610a', '#091202'], accent: '#d9f99d', border: 'rgba(163, 230, 53, 0.65)' },
+            { id: 'amber',    name: 'メタル・アンバー',       swatch: 'linear-gradient(135deg, #fbbf24, #b45309, #451a03)', stops: ['#240d02', '#b45309', '#f59e0b', '#8c3f06', '#170801'], accent: '#fde68a', border: 'rgba(251, 191, 36, 0.65)' },
+            { id: 'orange',   name: 'メタル・オレンジ',       swatch: 'linear-gradient(135deg, #fb923c, #c2410c, #431407)', stops: ['#240a03', '#c2410c', '#f97316', '#963108', '#170602'], accent: '#fed7aa', border: 'rgba(251, 146, 60, 0.65)' },
+            { id: 'red',      name: 'メタル・クリムゾン',     swatch: 'linear-gradient(135deg, #f87171, #b91c1c, #450a0a)', stops: ['#240404', '#b91c1c', '#ef4444', '#8f1414', '#170202'], accent: '#fecaca', border: 'rgba(248, 113, 113, 0.65)' },
+            { id: 'rose',     name: 'メタル・ローズ',         swatch: 'linear-gradient(135deg, #fb7185, #be123c, #4c0519)', stops: ['#26020c', '#be123c', '#f43f5e', '#940c2e', '#170107'], accent: '#fecdd3', border: 'rgba(251, 113, 133, 0.65)' },
+            { id: 'pink',     name: 'メタル・マゼンタピンク', swatch: 'linear-gradient(135deg, #f472b6, #be185d, #500724)', stops: ['#290312', '#be185d', '#ec4899', '#941147', '#1a020b'], accent: '#fbcfe8', border: 'rgba(244, 114, 182, 0.65)' },
+            { id: 'fuchsia',  name: 'メタル・フューシャ',     swatch: 'linear-gradient(135deg, #e879f9, #a21caf, #4a044e)', stops: ['#260229', '#a21caf', '#d946ef', '#7e1487', '#17011a'], accent: '#f5d0fe', border: 'rgba(232, 121, 249, 0.65)' },
+            // 金色・銀色
+            { id: 'gold',     name: 'ゴールド (Gold)',        swatch: 'linear-gradient(135deg, #fef08a, #eab308, #713f12)', stops: ['#241503', '#9a6708', '#facc15', '#784e05', '#170d02'], accent: '#fef08a', border: 'rgba(253, 224, 71, 0.75)' },
+            { id: 'silver',   name: 'シルバー (Silver)',      swatch: 'linear-gradient(135deg, #ffffff, #cbd5e1, #334155)', stops: ['#0f172a', '#64748b', '#e2e8f0', '#475569', '#090d16'], accent: '#ffffff', border: 'rgba(241, 245, 249, 0.75)' }
         ];
 
         // 16色 ＋ 金色 ＋ 銀色（計18テーマ）定義
@@ -455,6 +476,7 @@
                 state.tracks = data.items.map(item => ({
                     name: item.name,
                     artist: item.artists.map(a => a.name).join(', '),
+                    popularity: item.popularity || 50,
                     albumArt: item.album.images[0]?.url || 'https://placehold.co/300x300/1f2937/9ca3af?text=No+Image'
                 }));
 
@@ -473,6 +495,7 @@
                 list.push({
                     name: `${base.name} ${i >= 10 ? '#' + (i + 1) : ''}`,
                     artist: base.artist,
+                    popularity: Math.max(45, base.popularity - Math.floor(i * 0.7)),
                     albumArt: base.albumArt
                 });
             }
@@ -480,27 +503,17 @@
             renderCanvas();
         }
 
-        function setLimit(limit) {
-            state.limit = limit;
-            const limits = [5, 10, 15, 50];
-            limits.forEach(l => {
-                const btn = document.getElementById(`limit${l}Btn`);
-                if (btn) {
-                    btn.className = l === limit
-                        ? 'py-2 rounded-lg text-xs sm:text-sm font-semibold bg-green-500/20 text-green-400 border border-green-500/50 transition'
-                        : 'py-2 rounded-lg text-xs sm:text-sm font-semibold bg-gray-800 text-gray-400 border border-transparent hover:border-gray-700 transition';
-                }
-            });
-
-            renderCanvas();
-        }
-
-        function handleTimeRangeChange() {
-            state.timeRange = document.getElementById('timeRangeSelect').value;
-            if (state.accessToken) {
-                fetchTopTracks();
+        // Popularityスコア(0〜100)からSpotify総再生数(グローバル推定値)をフォーマット
+        function formatTotalStreams(popularity) {
+            const pop = Math.max(1, Math.min(100, popularity || 50));
+            // 指数スケールでリアルな再生数表記へ変換
+            const streams = Math.round(Math.pow(10, 5.2 + (pop / 100) * 4.15));
+            if (streams >= 1000000000) {
+                return (streams / 1000000000).toFixed(2) + 'B plays';
+            } else if (streams >= 1000000) {
+                return (streams / 1000000).toFixed(1) + 'M plays';
             } else {
-                renderCanvas();
+                return Math.round(streams / 1000) + 'K plays';
             }
         }
 
@@ -557,38 +570,26 @@
         }
 
         function drawBackground(ctx, width, height, themeObj) {
+            // 全18色にビビッド・メタリックの5段階グラデーションを適用
             let grad = ctx.createLinearGradient(0, 0, width, height);
-            
-            if (themeObj.metallic === 'gold') {
-                grad.addColorStop(0.0, '#1c1204');
-                grad.addColorStop(0.25, '#6b4708');
-                grad.addColorStop(0.5, '#b8860b');
-                grad.addColorStop(0.75, '#593a06');
-                grad.addColorStop(1.0, '#170e02');
-            } else if (themeObj.metallic === 'silver') {
-                grad.addColorStop(0.0, '#0f172a');
-                grad.addColorStop(0.25, '#475569');
-                grad.addColorStop(0.5, '#94a3b8');
-                grad.addColorStop(0.75, '#334155');
-                grad.addColorStop(1.0, '#090d16');
-            } else {
-                const stops = themeObj.stops;
-                grad.addColorStop(0, stops[0]);
-                grad.addColorStop(0.55, stops[1]);
-                grad.addColorStop(1, stops[2]);
-            }
+            const stops = themeObj.stops;
+            grad.addColorStop(0.0, stops[0]);
+            grad.addColorStop(0.25, stops[1]);
+            grad.addColorStop(0.5, stops[2]);
+            grad.addColorStop(0.75, stops[3]);
+            grad.addColorStop(1.0, stops[4]);
 
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, width, height);
 
-            if (themeObj.metallic) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-                ctx.fillRect(0, 0, width, height);
+            // 文字の視認性を保つための適度なダークベール
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.36)';
+            ctx.fillRect(0, 0, width, height);
 
-                ctx.strokeStyle = themeObj.metallic === 'gold' ? 'rgba(253, 224, 71, 0.45)' : 'rgba(241, 245, 249, 0.45)';
-                ctx.lineWidth = 6;
-                ctx.strokeRect(18, 18, width - 36, height - 36);
-            }
+            // 全色共通のメタリック外枠フレーム
+            ctx.strokeStyle = themeObj.border;
+            ctx.lineWidth = 6;
+            ctx.strokeRect(18, 18, width - 36, height - 36);
         }
 
         function drawHeader(ctx, width, themeObj) {
@@ -606,7 +607,7 @@
             const rangeText = state.timeRange === 'long_term' ? 'Past 1 Year / All Time' : 
                              state.timeRange === 'medium_term' ? 'Past 6 Months' : 'Past 4 Weeks';
             
-            ctx.fillStyle = themeObj.metallic ? '#E5E7EB' : '#9CA3AF';
+            ctx.fillStyle = '#E5E7EB';
             ctx.font = '600 18px "Plus Jakarta Sans", sans-serif';
             ctx.fillText(`RANKING TOP ${state.limit} • ${rangeText}`, 95, 110);
         }
@@ -619,18 +620,16 @@
                 const track = tracks[i];
                 const y = startY + (i * rowHeight);
 
-                ctx.fillStyle = themeObj.metallic ? 'rgba(0, 0, 0, 0.45)' : 'rgba(255, 255, 255, 0.05)';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
                 ctx.beginPath();
                 ctx.roundRect(50, y, width - 100, 128, 16);
                 ctx.fill();
 
-                if (themeObj.metallic) {
-                    ctx.strokeStyle = themeObj.metallic === 'gold' ? 'rgba(253, 224, 71, 0.25)' : 'rgba(255, 255, 255, 0.2)';
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
-                }
+                ctx.strokeStyle = themeObj.border;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
 
-                ctx.fillStyle = i === 0 ? themeObj.accent : '#D1D5DB';
+                ctx.fillStyle = i === 0 ? themeObj.accent : '#F3F4F6';
                 ctx.font = 'extrabold 38px "Plus Jakarta Sans", sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(`#${i + 1}`, 98, y + 78);
@@ -648,14 +647,21 @@
                     ctx.fillRect(145, y + 16, 96, 96);
                 }
 
+                // 総再生回数（右側表示）
+                const playsText = formatTotalStreams(track.popularity);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = themeObj.accent;
+                ctx.font = 'bold 17px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(`▶ ${playsText}`, width - 75, y + 70);
+
                 ctx.textAlign = 'left';
                 ctx.fillStyle = '#FFFFFF';
-                ctx.font = 'bold 26px "Plus Jakarta Sans", sans-serif';
-                ctx.fillText(truncateText(ctx, track.name, width - 340), 265, y + 58);
+                ctx.font = 'bold 25px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(truncateText(ctx, track.name, width - 470), 265, y + 58);
 
-                ctx.fillStyle = themeObj.metallic ? '#E5E7EB' : '#9CA3AF';
-                ctx.font = '500 19px "Plus Jakarta Sans", sans-serif';
-                ctx.fillText(truncateText(ctx, track.artist, width - 340), 265, y + 92);
+                ctx.fillStyle = '#E5E7EB';
+                ctx.font = '500 18px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(truncateText(ctx, track.artist, width - 470), 265, y + 92);
             }
         }
 
@@ -667,12 +673,12 @@
                 const track = tracks[i];
                 const y = startY + (i * rowHeight);
 
-                ctx.fillStyle = themeObj.metallic ? 'rgba(0, 0, 0, 0.42)' : 'rgba(255, 255, 255, 0.04)';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
                 ctx.beginPath();
                 ctx.roundRect(50, y, width - 100, 80, 12);
                 ctx.fill();
 
-                ctx.fillStyle = i < 3 ? themeObj.accent : '#9CA3AF';
+                ctx.fillStyle = i < 3 ? themeObj.accent : '#D1D5DB';
                 ctx.font = 'extrabold 28px "Plus Jakarta Sans", sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(`#${i + 1}`, 90, y + 50);
@@ -690,14 +696,21 @@
                     ctx.fillRect(130, y + 10, 60, 60);
                 }
 
+                // 総再生回数（右側表示）
+                const playsText = formatTotalStreams(track.popularity);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = themeObj.accent;
+                ctx.font = 'bold 14px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(`▶ ${playsText}`, width - 70, y + 46);
+
                 ctx.textAlign = 'left';
                 ctx.fillStyle = '#FFFFFF';
                 ctx.font = 'bold 20px "Plus Jakarta Sans", sans-serif';
-                ctx.fillText(truncateText(ctx, track.name, width - 320), 210, y + 40);
+                ctx.fillText(truncateText(ctx, track.name, width - 430), 210, y + 40);
 
-                ctx.fillStyle = themeObj.metallic ? '#D1D5DB' : '#9CA3AF';
+                ctx.fillStyle = '#D1D5DB';
                 ctx.font = '500 15px "Plus Jakarta Sans", sans-serif';
-                ctx.fillText(truncateText(ctx, track.artist, width - 320), 210, y + 63);
+                ctx.fillText(truncateText(ctx, track.artist, width - 430), 210, y + 63);
             }
         }
 
@@ -709,12 +722,12 @@
                 const track = tracks[i];
                 const y = startY + (i * rowHeight);
 
-                ctx.fillStyle = themeObj.metallic ? 'rgba(0, 0, 0, 0.42)' : 'rgba(255, 255, 255, 0.04)';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
                 ctx.beginPath();
                 ctx.roundRect(50, y, width - 100, 70, 10);
                 ctx.fill();
 
-                ctx.fillStyle = i < 3 ? themeObj.accent : '#9CA3AF';
+                ctx.fillStyle = i < 3 ? themeObj.accent : '#D1D5DB';
                 ctx.font = 'extrabold 24px "Plus Jakarta Sans", sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(`#${i + 1}`, 90, y + 44);
@@ -732,14 +745,21 @@
                     ctx.fillRect(130, y + 9, 52, 52);
                 }
 
+                // 総再生回数（右側表示）
+                const playsText = formatTotalStreams(track.popularity);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = themeObj.accent;
+                ctx.font = 'bold 13px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(`▶ ${playsText}`, width - 70, y + 40);
+
                 ctx.textAlign = 'left';
                 ctx.fillStyle = '#FFFFFF';
                 ctx.font = 'bold 18px "Plus Jakarta Sans", sans-serif';
-                ctx.fillText(truncateText(ctx, track.name, width - 310), 200, y + 34);
+                ctx.fillText(truncateText(ctx, track.name, width - 420), 200, y + 34);
 
-                ctx.fillStyle = themeObj.metallic ? '#D1D5DB' : '#9CA3AF';
+                ctx.fillStyle = '#D1D5DB';
                 ctx.font = '500 14px "Plus Jakarta Sans", sans-serif';
-                ctx.fillText(truncateText(ctx, track.artist, width - 310), 200, y + 55);
+                ctx.fillText(truncateText(ctx, track.artist, width - 420), 200, y + 55);
             }
         }
 
@@ -757,14 +777,12 @@
                 const x = 50 + (col * (colWidth + 30));
                 const y = startY + (row * rowHeight);
 
-                if (themeObj.metallic) {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
-                    ctx.beginPath();
-                    ctx.roundRect(x - 4, y + 2, colWidth + 8, 46, 6);
-                    ctx.fill();
-                }
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+                ctx.beginPath();
+                ctx.roundRect(x - 4, y + 2, colWidth + 8, 46, 6);
+                ctx.fill();
 
-                ctx.fillStyle = i < 3 ? themeObj.accent : '#9CA3AF';
+                ctx.fillStyle = i < 3 ? themeObj.accent : '#D1D5DB';
                 ctx.font = 'bold 16px "Plus Jakarta Sans", sans-serif';
                 ctx.textAlign = 'right';
                 ctx.fillText(`${i + 1}`, x + 25, y + 32);
@@ -782,20 +800,27 @@
                     ctx.fillRect(x + 35, y + 8, 36, 36);
                 }
 
+                // 総再生回数（各列の右端に表示）
+                const playsText = formatTotalStreams(track.popularity);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = themeObj.accent;
+                ctx.font = 'bold 11px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(`▶ ${playsText}`, x + colWidth - 6, y + 29);
+
                 ctx.textAlign = 'left';
                 ctx.fillStyle = '#FFFFFF';
                 ctx.font = 'bold 14px "Plus Jakarta Sans", sans-serif';
-                ctx.fillText(truncateText(ctx, track.name, colWidth - 90), x + 80, y + 26);
+                ctx.fillText(truncateText(ctx, track.name, colWidth - 185), x + 80, y + 26);
 
-                ctx.fillStyle = themeObj.metallic ? '#E5E7EB' : '#9CA3AF';
+                ctx.fillStyle = '#E5E7EB';
                 ctx.font = '500 12px "Plus Jakarta Sans", sans-serif';
-                ctx.fillText(truncateText(ctx, track.artist, colWidth - 90), x + 80, y + 41);
+                ctx.fillText(truncateText(ctx, track.artist, colWidth - 185), x + 80, y + 41);
             }
         }
 
         function drawFooter(ctx, width, height, themeObj) {
             ctx.textAlign = 'center';
-            ctx.fillStyle = themeObj.metallic ? 'rgba(255, 255, 255, 0.65)' : '#6B7280';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
             ctx.font = '600 14px "Plus Jakarta Sans", sans-serif';
             ctx.fillText('POWERED BY SPOTIFY API • CANVAS GENERATOR', width / 2, height - 28);
         }
@@ -924,36 +949,36 @@
             document.getElementById('batchModal').classList.add('hidden');
         }
 
-        async function downloadAllAsZip() {
+        // ZIPではなくPNGファイルを連続で一括ダウンロード
+        async function downloadAllAsPngs() {
             if (!generatedBatchImages.length) return;
-            const zipBtn = document.getElementById('downloadZipBtn');
-            const originalHtml = zipBtn.innerHTML;
-            zipBtn.disabled = true;
-            zipBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ZIP圧縮中...';
+            const dlBtn = document.getElementById('downloadAllPngBtn');
+            const originalHtml = dlBtn.innerHTML;
+            dlBtn.disabled = true;
 
             try {
-                const zip = new JSZip();
-                const folder = zip.folder(`spotify-top${state.limit}-18colors`);
+                for (let i = 0; i < generatedBatchImages.length; i++) {
+                    const item = generatedBatchImages[i];
+                    dlBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> PNG保存中 (${i + 1}/${generatedBatchImages.length})...`;
+                    
+                    const link = document.createElement('a');
+                    link.href = item.dataUrl;
+                    link.download = item.filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
 
-                generatedBatchImages.forEach(item => {
-                    const base64Data = item.dataUrl.split(',')[1];
-                    folder.file(item.filename, base64Data, { base64: true });
-                });
+                    // ブラウザの連続ダウンロード制限を回避するため少し待機
+                    await new Promise(r => setTimeout(r, 350));
+                }
 
-                const content = await zip.generateAsync({ type: 'blob' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(content);
-                link.download = `spotify-top${state.limit}-all-18-themes.zip`;
-                link.click();
-                URL.revokeObjectURL(link.href);
-
-                showToast('全18色のZIPファイルのダウンロードを開始しました！');
+                showToast('全18枚のPNGファイルのダウンロードが完了しました！');
             } catch (e) {
                 console.error(e);
-                showToast('ZIP圧縮に失敗しました。個別ボタンから保存してください。');
+                showToast('一括保存中にエラーが発生しました。個別ボタンから保存してください。');
             } finally {
-                zipBtn.disabled = false;
-                zipBtn.innerHTML = originalHtml;
+                dlBtn.disabled = false;
+                dlBtn.innerHTML = originalHtml;
             }
         }
     </script>
